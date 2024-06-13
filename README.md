@@ -6,12 +6,12 @@ This repository provides samples for implementing Neoload automated testing in:
 
 The samples leverage the Neoload CLI to run a Neoload test through Neoload Web.
 
-The test infrastructure (Controller and Load Generators) needed to run the test can be either provided as predefined/existing Neoload Web Zone Id (Neoload Cloud, static or dynamic) or hosted within the pipeline itself (*neoload-\*-resoruces.yml* samples)
+The test infrastructure (Controller and Load Generators) needed to run the test can be either provided as predefined/existing Neoload Web resources (Neoload Cloud, static or dynamic) or hosted within the pipeline itself (*neoload-\*-resoruces.yml* samples)
 
 ## TL;DR ... How
-The samples can be used as they are, following the vendor-specific guidelines to set up the pipeline.
+The samples are "ready to use", just follow the vendor-specific guidelines to set up the pipeline.
 
-The pipeline execution requires 3 parameters:
+The automated test execution requires 3 parameters:
 
 * Neoload Web access *Token*
 * Neoload Web resources *Zone Id* (required also in case of pipeline self-hosted test infrastructure)
