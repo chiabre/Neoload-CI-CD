@@ -1,0 +1,107 @@
+trigger: none
+
+pool:
+  vmImage: 'ubuntu-22.04'
+
+parameters:
+- name: neoloadToken
+  type: string
+  default: '$(token)'
+- name: zoneId
+  type: string
+  default: '$(zoneId)'
+- name: testId
+  type: string
+  default: '$(testId)'
+
+# create sidecar containers, attach them to a zone; provide supply this pipeline demands
+resources:
+  containers:
+  - container: neoload_ctrl
+    image: neotys/neoload-controller:latest
+    env:
+      MODE: Managed
+      NEOLOADWEB_TOKEN: ${{parameters.neoloadToken}}
+      ZONE: ${{parameters.zoneId}}
+  - container: lg1
+    image: neotys/neoload-loadgenerator:latest
+    env: 
+      NEOLOADWEB_TOKEN: ${{parameters.neoloadToken}}
+      ZONE: ${{parameters.zoneId}}
+      LG_HOST: lg1
+      LG_PORT: 7101
+      AGENT_SERVER_PORT: 7101 
+
+jobs:
+
+- job: RunNeoloadTest
+  displayName: Start infrastructure and run NeoLoad Test from Azure Devops
+  services:
+    neoload_ctrl: neoload_ctrl
+    lg1: lg1
+
+  steps:
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.8'
+
+  - task: Bash@3
+    displayName: Install NeoLoadCLI 
+    continueOnError: false
+    inputs:
+      targetType: 'inline'
+      script: |
+        pip install neoload
+        neoload --version
+
+  - task: Bash@3
+    displayName: NeoLoadCLI login 
+    continueOnError: false
+    inputs:
+      targetType: 'inline'
+      script: |
+        neoload login ${{parameters.neoloadToken}} 
+
+  - task: Bash@3
+    displayName: NeoLoadCLI configure test
+    continueOnError: false
+    inputs:
+      targetType: 'inline'
+      script: |
+        neoload test-settings --zone ${{parameters.zoneId}} --lgs 1 patch ${{parameters.testId}} 
+
+  - task: Bash@3
+    displayName: NeoLoadCLI get test details
+    continueOnError: false
+    inputs:
+      targetType: 'inline'
+      script: |
+        neoload test-settings ls ${{parameters.testId}}
+
+  - task: Bash@3
+    displayName: NeoLoadCLI run test
+    continueOnError: true
+    inputs:
+      targetType: 'inline'
+      script: |
+        neoload run \
+                       --name "Azure build $(Build.BuildNumber)" \
+                       --external-url "$(System.TeamFoundationCollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)" \
+                       --external-url-label "Azure pipeline performance regression test - build $(Build.BuildNumber)" \
+                       --description "Azure pipeline performance regression test" \
+                       ${{parameters.testId}}
+
+  - task: Bash@3
+    displayName: NeoLoadCLI get test resuslts
+    continueOnError: false
+    inputs:
+      targetType: 'inline'
+      script: |
+       neoload test-results --junit-file $(Common.TestResultsDirectory)/neoload-slas.xml junitsla "Azure build $(Build.BuildNumber)"
+
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: $(Common.TestResultsDirectory)/neoload-slas.xml
+      failTaskOnFailedTests: true

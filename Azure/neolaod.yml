@@ -1,0 +1,85 @@
+trigger: none
+
+pool:
+  vmImage: 'ubuntu-22.04'
+
+parameters:
+- name: neoloadToken
+  type: string
+  default: '$(token)'
+- name: zoneId
+  type: string
+  default: '$(zoneId)'
+- name: testId
+  type: string
+  default: '$(testId)'
+
+jobs:
+
+- job: RunNeoloadTest
+  displayName: Run NeoLoad Test
+  steps:
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.8'
+
+  - task: Bash@3
+    displayName: Install NeoLoadCLI 
+    continueOnError: false
+    inputs:
+      targetType: 'inline'
+      script: |
+        pip install neoload
+        neoload --version
+
+  - task: Bash@3
+    displayName: NeoLoadCLI login 
+    continueOnError: false
+    inputs:
+      targetType: 'inline'
+      script: |
+        neoload login ${{parameters.neoloadToken}} 
+
+  - task: Bash@3
+    displayName: NeoLoadCLI configure test
+    continueOnError: false
+    inputs:
+      targetType: 'inline'
+      script: |
+        neoload test-settings --zone ${{parameters.zoneId}} --lgs 1 patch ${{parameters.testId}} 
+
+  - task: Bash@3
+    displayName: NeoLoadCLI get test details
+    continueOnError: false
+    inputs:
+      targetType: 'inline'
+      script: |
+        neoload test-settings ls ${{parameters.testId}}
+
+  - task: Bash@3
+    displayName: NeoLoadCLI run test
+    continueOnError: true
+    inputs:
+      targetType: 'inline'
+      script: |
+        neoload run \
+                       --name "Azure build $(Build.BuildNumber)" \
+                       --external-url "$(System.TeamFoundationCollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)" \
+                       --external-url-label "Azure pipeline performance regression test - build $(Build.BuildNumber)" \
+                       --description "Azure pipeline performance regression test" \
+                       ${{parameters.testId}}
+
+  - task: Bash@3
+    displayName: NeoLoadCLI get test resuslts
+    continueOnError: false
+    inputs:
+      targetType: 'inline'
+      script: |
+       neoload test-results --junit-file $(Common.TestResultsDirectory)/neoload-slas.xml junitsla "Azure build $(Build.BuildNumber)"
+
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: $(Common.TestResultsDirectory)/neoload-slas.xml
+      failTaskOnFailedTests: true
