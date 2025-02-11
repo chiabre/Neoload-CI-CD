@@ -2,18 +2,17 @@ name: NeoLoad Test
 on:
   workflow_dispatch:
     inputs:
-      zone_id:
+      ZONE_ID:
         description: 'Zone id'
-        default: 'XXXXX'
-      test_id:
+        required: True
+      TEST_ID:
         description: 'Test id'
-        default: 'XXXXX'
-  
+        required: True
 jobs:
   neoload_test:
     name: NeoLoad Test
     runs-on: ubuntu-latest
-   steps:
+  steps:
 
       - name: "Install NeoLoad CLI"
         run: >
@@ -27,8 +26,8 @@ jobs:
       - name: "NeoLoad CLI configure test"
         run: >
           neoload test-settings 
-          --zone ${{ github.event.inputs.zone_id }} 
-          --lgs 1 patch ${{ github.event.inputs.test_id }}
+          --zone ${{ inputs.ZONE_ID }} 
+          --lgs 1 patch ${{ inputs.TEST_ID }}
           
       - name: "NeoLoadCLI run test"
         run: >
