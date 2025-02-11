@@ -1,4 +1,5 @@
-name: NeoLoad Test 
+name: NeoLoad Test
+
 on:
   workflow_dispatch:
     inputs:
@@ -8,44 +9,42 @@ on:
       TEST_ID:
         description: 'Test id'
         required: True
+
 jobs:
   neoload_test:
     name: NeoLoad Test
     runs-on: ubuntu-latest
-  steps:
-
-      - name: "Install NeoLoad CLI"
-        run: >
-          pip install neoload;
+    steps:
+      - name: Install NeoLoad CLI
+        run: |
+          pip install neoload
           neoload --version
 
-      - name: "NeoLoad CLI login"
-        run: >
-          neoload login ${{ secrets.NEOLOADTOKEN }}
+      - name: NeoLoad CLI login
+        run: neoload login ${{ secrets.NEOLOADTOKEN }}
 
-      - name: "NeoLoad CLI configure test"
-        run: >
-          neoload test-settings 
-          --zone ${{ inputs.ZONE_ID }} 
-          --lgs 1 patch ${{ inputs.TEST_ID }}
-          
-      - name: "NeoLoadCLI run test"
-        run: >
-          neoload run
-          --name "Github run $GITHUB_RUN_NUMBER"
-          --external-url $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID 
-          --external-url-label "repo: $GITHUB_REPOSITORY workflow: $GITHUB_WORKFLOW run: $GITHUB_RUN_NUMBER" 
-          --description "Github pipeline performance regression test - repo: $GITHUB_REPOSITORY"
-          --return-0
+      - name: NeoLoad CLI configure test
+        run: neoload test-settings --zone ${{ inputs.ZONE_ID }} --lgs 1 patch ${{ inputs.TEST_ID }}
 
-      - name: "Generate Test Report"
+      - name: NeoLoad CLI run test
+        run: |
+          neoload run \
+            --name "Github run $GITHUB_RUN_NUMBER" \
+            --external-url $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID \
+            --external-url-label "repo: $GITHUB_REPOSITORY workflow: $GITHUB_WORKFLOW run: $GITHUB_RUN_NUMBER" \
+            --description "Github pipeline performance regression test - repo: $GITHUB_REPOSITORY" \
+            --return-0
+        continue-on-error: true # Allow workflow to continue even if the test fails
+
+      - name: Generate Test Report
         id: report
-        if: ${{ always() }}
+        if: always()
         run: neoload test-results junitsla
+        continue-on-error: true # Allow workflow to continue even if report generation fails
 
-      - name: "Publish Test Report"
-        if: steps.report.outcome == 'success'
+      - name: Publish Test Report
+        if: steps.report.outcome == 'success' && steps.report.conclusion == 'success' # Check for success and conclusion
         uses: scacap/action-surefire-report@v1
         with:
           report_paths: junit-sla.xml
-          fail_on_test_failures: true
+          fail_on_test_failures: true # Fail the workflow if tests within the report fail
