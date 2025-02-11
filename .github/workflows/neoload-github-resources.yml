@@ -2,12 +2,12 @@ name: NeoLoad Test Dynamic Infra
 on:
   workflow_dispatch:
     inputs:
-      zone_id:
+      ZONE_ID:
         description: 'Zone id'
-        default: 'XXXXX'
-      test_id:
+        required: True
+      TEST_ID:
         description: 'Test id'
-        default: 'XXXXX'
+        required: True
   
 jobs:
   neoload_test:
@@ -18,16 +18,18 @@ jobs:
         env:
           MODE: Managed
           NEOLOADWEB_TOKEN: ${{ secrets.NEOLOADTOKEN }}
-          ZONE: ${{ github.event.inputs.zone_id }} 
+          ZONE: ${{ inputs.ZONE_ID }} 
       lg1:
         image:  neotys/neoload-loadgenerator:latest
         env: 
           NEOLOADWEB_TOKEN: ${{ secrets.NEOLOADTOKEN }}
-          ZONE: ${{ github.event.inputs.zone_id }} 
+          ZONE: ${{ inputs.ZONE_ID }} 
           LG_HOST: lg1
           LG_PORT: 7101
           AGENT_SERVER_PORT: 7101 
+
     runs-on: ubuntu-latest
+    
     steps:
 
       - name: "Install NeoLoad CLI"
@@ -42,8 +44,8 @@ jobs:
       - name: "NeoLoad CLI configure test"
         run: >
           neoload test-settings 
-          --zone ${{ github.event.inputs.zone_id }} 
-          --lgs 1 patch ${{ github.event.inputs.test_id }}
+          --zone ${{ inputs.ZONE_ID }} 
+          --lgs 1 patch ${{ inputs.TEST_ID }}
           
       - name: "NeoLoadCLI run test"
         run: >

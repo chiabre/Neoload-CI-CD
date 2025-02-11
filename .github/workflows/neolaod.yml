@@ -34,13 +34,11 @@ jobs:
             --external-url-label "repo: $GITHUB_REPOSITORY workflow: $GITHUB_WORKFLOW run: $GITHUB_RUN_NUMBER" \
             --description "Github pipeline performance regression test - repo: $GITHUB_REPOSITORY" \
             --return-0
-        continue-on-error: true # Allow workflow to continue even if the test fails
 
       - name: Generate Test Report
         id: report
         if: always()
         run: neoload test-results junitsla
-        continue-on-error: true # Allow workflow to continue even if report generation fails
 
       - name: Publish Test Report
         if: steps.report.outcome == 'success' && steps.report.conclusion == 'success' # Check for success and conclusion
