@@ -1,0 +1,68 @@
+name: NeoLoad Test Dynamic Infra
+on:
+  workflow_dispatch:
+    inputs:
+      zone_id:
+        description: 'Zone id'
+        default: 'XXXXX'
+      test_id:
+        description: 'Test id'
+        default: 'XXXXX'
+  
+jobs:
+  neoload_test:
+    name: NeoLoad Test
+    services:
+      neoload_ctrl:
+        image: neotys/neoload-controller:latest
+        env:
+          MODE: Managed
+          NEOLOADWEB_TOKEN: ${{ secrets.NEOLOADTOKEN }}
+          ZONE: ${{ github.event.inputs.zone_id }} 
+      lg1:
+        image:  neotys/neoload-loadgenerator:latest
+        env: 
+          NEOLOADWEB_TOKEN: ${{ secrets.NEOLOADTOKEN }}
+          ZONE: ${{ github.event.inputs.zone_id }} 
+          LG_HOST: lg1
+          LG_PORT: 7101
+          AGENT_SERVER_PORT: 7101 
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: "Install NeoLoad CLI"
+        run: >
+          pip install neoload;
+          neoload --version
+
+      - name: "NeoLoad CLI login"
+        run: >
+          neoload login ${{ secrets.NEOLOADTOKEN }}
+
+      - name: "NeoLoad CLI configure test"
+        run: >
+          neoload test-settings 
+          --zone ${{ github.event.inputs.zone_id }} 
+          --lgs 1 patch ${{ github.event.inputs.test_id }}
+          
+      - name: "NeoLoadCLI run test"
+        run: >
+          neoload run
+          --name "Github run $GITHUB_RUN_NUMBER"
+          --external-url $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID 
+          --external-url-label "repo: $GITHUB_REPOSITORY workflow: $GITHUB_WORKFLOW run: $GITHUB_RUN_NUMBER" 
+          --description "Github pipeline performance regression test - repo: $GITHUB_REPOSITORY"
+          --return-0
+
+      - name: "Generate Test Report"
+        id: report
+        if: ${{ always() }}
+        run: neoload test-results junitsla
+
+      - name: "Publish Test Report"
+        if: steps.report.outcome == 'success'
+        uses: scacap/action-surefire-report@v1
+        with:
+          report_paths: junit-sla.xml
+          fail_on_test_failures: true
+          
