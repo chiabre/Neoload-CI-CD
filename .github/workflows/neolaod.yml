@@ -33,10 +33,10 @@ jobs:
       - name: NeoLoad CLI run test
         run: |
           neoload run \
-            --name "Via github actions" \
+            --name "Via GitHub Actions (#$GITHUB_RUN_NUMBER)" \
             --external-url $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID \
-            --external-url-label "repo: $GITHUB_REPOSITORY workflow: $GITHUB_WORKFLOW run: $GITHUB_RUN_NUMBER" \
-            --description "Github pipeline performance regression test | repo: $GITHUB_REPOSITORY | run: $GITHUB_RUN_NUMBER" \
+            --external-url-label "$GITHUB_REPOSITORY" \
+            --description "Github pipeline performance regression test | repo: $GITHUB_REPOSITORY | workflow:  $GITHUB_WORKFLOW | run: $GITHUB_RUN_NUMBER" \
             --return-0
 
       - name: Generate Test Report
