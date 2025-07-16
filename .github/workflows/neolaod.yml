@@ -5,10 +5,14 @@ on:
     inputs:
       ZONE_ID:
         description: 'Zone id'
-        required: True
+        required: true
       TEST_ID:
         description: 'Test id'
-        required: True
+        required: true
+
+permissions:
+  contents: read
+  checks: write
 
 jobs:
   neoload_test:
@@ -41,8 +45,15 @@ jobs:
         run: neoload test-results junitsla
 
       - name: Publish Test Report
-        if: steps.report.outcome == 'success' && steps.report.conclusion == 'success' # Check for success and conclusion
+        if: steps.report.outcome == 'success'
         uses: scacap/action-surefire-report@v1
         with:
           report_paths: junit-sla.xml
-          fail_on_test_failures: true # Fail the workflow if tests within the report fail
+          fail_on_test_failures: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          create_check: true
+          check_name: Test Report
+          fail_if_no_tests: true
+          ignore_flaky_tests: false
+          skip_publishing: false
+          file_name_in_stack_trace: false
