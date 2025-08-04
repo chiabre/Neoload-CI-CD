@@ -1,0 +1,66 @@
+pipeline {
+  agent any
+
+  parameters {
+    string(name: 'ZONE_ID', description: 'Zone ID')
+    string(name: 'TEST_ID', description: 'Test ID')
+  }
+
+  environment {
+    NEOLOADTOKEN = credentials('neoload-token-id')
+    PATH = "/var/lib/jenkins/.local/bin:$PATH"
+  }
+
+  stages {
+    stage('Check NeoLoad CLI') {
+      steps {
+        sh '''
+          neoload --version
+        '''
+      }
+    }
+
+    stage('Login to NeoLoad Web') {
+      steps {
+        sh 'neoload login $NEOLOADTOKEN'
+      }
+    }
+
+    stage('Configure Test Settings') {
+      steps {
+        sh 'neoload test-settings --zone $ZONE_ID --lgs 1 patch $TEST_ID'
+      }
+    }
+
+    stage('Run NeoLoad Test') {
+      steps {
+        sh '''
+          neoload run \
+            --name "Jenkins Run #$BUILD_NUMBER" \
+            --external-url $BUILD_URL \
+            --external-url-label "Jenkins Job: $JOB_NAME Run: $BUILD_NUMBER" \
+            --description "Jenkins-triggered test for job $JOB_NAME" \
+            --return-0
+        '''
+      }
+    }
+
+    stage('Generate Test Report') {
+      steps {
+        sh 'neoload test-results junitsla'
+      }
+    }
+
+    stage('Publish Test Report') {
+      steps {
+        junit 'junit-sla.xml'
+      }
+    }
+  }
+
+  post {
+    always {
+      echo 'Pipeline completed.'
+    }
+  }
+}
