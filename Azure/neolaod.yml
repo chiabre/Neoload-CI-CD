@@ -30,6 +30,7 @@ jobs:
     inputs:
       targetType: 'inline'
       script: |
+        set -x
         pip install neoload
         neoload --version
 
@@ -39,6 +40,7 @@ jobs:
     inputs:
       targetType: 'inline'
       script: |
+        set -x
         neoload login ${{parameters.neoloadToken}} 
 
   - task: Bash@3
@@ -47,6 +49,7 @@ jobs:
     inputs:
       targetType: 'inline'
       script: |
+        set -x
         neoload test-settings --zone ${{parameters.zoneId}} --lgs 1 patch ${{parameters.testId}} 
 
   - task: Bash@3
@@ -55,6 +58,7 @@ jobs:
     inputs:
       targetType: 'inline'
       script: |
+        set -x
         neoload test-settings ls ${{parameters.testId}}
 
   - task: Bash@3
@@ -63,12 +67,13 @@ jobs:
     inputs:
       targetType: 'inline'
       script: |
+        set -x
         neoload run \
-                       --name "Azure build $(Build.BuildNumber)" \
-                       --external-url "$(System.TeamFoundationCollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)" \
-                       --external-url-label "Azure pipeline performance regression test - build $(Build.BuildNumber)" \
-                       --description "Azure pipeline performance regression test" \
-                       ${{parameters.testId}}
+          --name "Azure build $(Build.BuildNumber)" \
+          --external-url "$(System.TeamFoundationCollectionUri)$(System.TeamProjectId)/_build/results?buildId=$(Build.BuildId)" \
+          --external-url-label "AzureDevOps pipeline run" \
+          --description "Performance test triggered by AzureDevOps pipeline | repo:$(Build.Repository.Name) | branch:$(Build.SourceBranchName) | build:$(Build.BuildNumber)" \
+          ${{parameters.testId}}
 
   - task: Bash@3
     displayName: NeoLoadCLI get test resuslts
@@ -76,10 +81,48 @@ jobs:
     inputs:
       targetType: 'inline'
       script: |
-       neoload test-results --junit-file $(Common.TestResultsDirectory)/neoload-slas.xml junitsla "Azure build $(Build.BuildNumber)"
+        set -x
+        neoload test-results \
+        --junit-file $(Common.TestResultsDirectory)/neoload-slas.xml \
+        junitsla \
+        "Azure build $(Build.BuildNumber)"
 
   - task: PublishTestResults@2
+    displayName: Publish results (JUnit)
+    continueOnError: false
     inputs:
       testResultsFormat: 'JUnit'
       testResultsFiles: $(Common.TestResultsDirectory)/neoload-slas.xml
       failTaskOnFailedTests: true
+
+  - task: Bash@3
+    displayName: Download custom report templates 
+    continueOnError: true
+    inputs:
+      targetType: 'inline'
+      script: |
+        set -x
+        git clone --depth=1 https://github.com/Neotys-Labs/neoload-cli.git
+        mkdir ReportTemplates
+        cp -r neoload-cli/neoload/resources/jinja ReportTemplates
+        rm -rf neoload-cli
+
+  - task: Bash@3
+    displayName: Generate report
+    continueOnError: true
+    inputs:
+      targetType: 'inline'
+      script: |
+        set -x
+        neoload report \
+        --template ReportTemplates/jinja/sample-custom-report.html.j2 \
+        --out-file $(Common.TestResultsDirectory)/neoload-report.html \
+        "Azure build $(Build.BuildNumber)"
+
+  - task: PublishHtmlReport@1
+    displayName: Publish report
+    continueOnError: true
+    inputs:
+      reportDir: '$(Common.TestResultsDirectory)/neoload-report.html'
+      useFilenameTabs: true
+      tabName: Neolaod Report
