@@ -12,11 +12,10 @@ pipeline {
   }
 
   stages {
-    stage('Check NeoLoad CLI') {
+
+    stage('Verify NeoLoad CLI') {
       steps {
-        sh '''
-          neoload --version
-        '''
+        sh 'neoload --version'
       }
     }
 
@@ -32,35 +31,91 @@ pipeline {
       }
     }
 
+    stage('Get Test Details') {
+      steps {
+        sh 'neoload test-settings ls $TEST_ID'
+      }
+    }
+
     stage('Run NeoLoad Test') {
       steps {
         sh '''
           neoload run \
-            --name "Jenkins Run #$BUILD_NUMBER" \
+            --name "Jenkins build $BUILD_NUMBER" \
             --external-url $BUILD_URL \
-            --external-url-label "Jenkins Job: $JOB_NAME Run: $BUILD_NUMBER" \
-            --description "Jenkins-triggered test for job $JOB_NAME" \
-            --return-0
+            --external-url-label "Jenkins job run" \
+            --description "Performance test triggered by Jenkins pipeline | job:$JOB_NAME | build:$BUILD_NUMBER" \
+            $TEST_ID
         '''
       }
     }
 
-    stage('Generate Test Report') {
+    stage('Generate Test Report (JUnit SLA)') {
       steps {
-        sh 'neoload test-results junitsla'
+        sh '''
+          mkdir -p reports
+          neoload test-results \
+            --junit-file reports/neoload-slas.xml \
+            junitsla \
+            "Jenkins build $BUILD_NUMBER"
+        '''
       }
     }
 
     stage('Publish Test Report') {
       steps {
-        junit 'junit-sla.xml'
+        junit 'reports/neoload-slas.xml'
       }
     }
-  }
+
+    stage('Download Custom Report Templates') {
+      steps {
+        script {
+          catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+            sh '''
+              git clone --depth=1 https://github.com/Neotys-Labs/neoload-cli.git
+              mkdir -p ReportTemplates
+              cp -r neoload-cli/neoload/resources/jinja ReportTemplates
+              rm -rf neoload-cli
+            '''
+          }
+        }
+      }
+    }
+
+    stage('Generate Custom HTML Report') {
+      steps {
+        script {
+          catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+            sh '''
+              neoload report \
+                --template ReportTemplates/jinja/sample-custom-report.html.j2 \
+                --out-file reports/neoload-report.html \
+                "Jenkins build $BUILD_NUMBER"
+            '''
+          }
+        }
+      }
+    }
+
+  } // end stages
 
   post {
     always {
-      echo 'Pipeline completed.'
+        echo 'Pipeline completed.'
+        // Publish HTML report
+        publishHTML(target: [
+            reportName: 'NeoLoad Custom Report',          // Name in Jenkins UI
+            reportDir: 'reports',                         // Folder containing HTML
+            reportFiles: 'neoload-report.html',          // HTML file to publish
+            keepAll: true,                                // Keep all builds
+            alwaysLinkToLastBuild: true,                 // Link “Last Build” to latest
+            allowMissing: false,                          // Fail build if report missing
+            includes: '**/*.html'                         // Ensure any JS-linked files are included
+        ])
+
+      // Archive all reports
+      archiveArtifacts artifacts: 'reports/**', fingerprint: true
     }
   }
 }
