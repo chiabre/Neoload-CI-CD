@@ -78,6 +78,7 @@ jobs:
         id: report
         if: steps.template.outcome == 'success'
         run: |
+          mkdir -p report
           neoload report \
             --template ReportTemplates/jinja/sample-custom-report.html.j2 \
             --out-file report/neoload-report.html \
