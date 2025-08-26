@@ -80,7 +80,7 @@ jobs:
         run: |
           neoload report \
             --template ReportTemplates/jinja/sample-custom-report.html.j2 \
-            --out-file neoload-report.html \
+            --out-file report/neoload-report.html \
             "GitHub Workflow: $GITHUB_WORKFLOW  Run: #$GITHUB_RUN_NUMBER)"
          
       - name: Upload HTML report for Pages
@@ -88,7 +88,7 @@ jobs:
         if: steps.report.outcome == 'success'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: neoload-report.html
+          path: report
       
       - name: Deploy to GitHub Pages
         if: steps.upload.outcome == 'success'
