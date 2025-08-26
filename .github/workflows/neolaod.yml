@@ -40,10 +40,10 @@ jobs:
         if: steps.configure.outcome == 'success'
         run: |
           neoload run \
-            --name "GitHub Workflow: $GITHUB_WORKFLOW  Run: #$GITHUB_RUN_NUMBER)" \
+            --name "GitHub | Workflow: $GITHUB_WORKFLOW | Run: #$GITHUB_RUN_NUMBER" \
             --external-url $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID \
             --external-url-label "$GITHUB_REPOSITORY" \
-            --description "Github pipeline performance regression test | repo: $GITHUB_REPOSITORY | workflow:  $GITHUB_WORKFLOW | run: $GITHUB_RUN_NUMBER" \
+            --description "Github performance test | repo: $GITHUB_REPOSITORY | workflow:  $GITHUB_WORKFLOW | run: $GITHUB_RUN_NUMBER" \
             --return-0
 
       - name: Generate Test Report
@@ -82,7 +82,7 @@ jobs:
           neoload report \
             --template ReportTemplates/jinja/sample-custom-report.html.j2 \
             --out-file report/neoload-report.html \
-            "GitHub Workflow: $GITHUB_WORKFLOW  Run: #$GITHUB_RUN_NUMBER)"
+            "GitHub | Workflow: $GITHUB_WORKFLOW | Run: #$GITHUB_RUN_NUMBER"
          
       - name: Upload HTML report for Pages
         id: upload
