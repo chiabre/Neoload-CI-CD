@@ -82,17 +82,14 @@ jobs:
             --template ReportTemplates/jinja/sample-custom-report.html.j2 \
             --out-file neoload-report.html \
             "GitHub Workflow: $GITHUB_WORKFLOW  Run: #$GITHUB_RUN_NUMBER)"
-
-      - name: Upload HTML Report Artifact
+         
+      - name: Upload HTML report for Pages
         id: upload
         if: steps.report.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: neoload-html-report
           path: neoload-report.html
-
-      - name: Add HTML Report Link to Summary
+      
+      - name: Deploy to GitHub Pages
         if: steps.upload.outcome == 'success'
-        run: |
-          echo "## 📊 NeoLoad HTML Report" >> $GITHUB_STEP_SUMMARY
-          echo "Download the report from the artifacts section: [neoload-html-report](./)" >> $GITHUB_STEP_SUMMARY
+        uses: actions/deploy-pages@v4
