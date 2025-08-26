@@ -20,32 +20,39 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install NeoLoad CLI
+        id: install
         run: |
           pip install neoload
           neoload --version
 
       - name: NeoLoad CLI login
+        id: login
+        if: steps.install.outcome == 'success'
         run: neoload login ${{ secrets.NEOLOADTOKEN }}
 
       - name: NeoLoad CLI configure test
+        id: configure
+        if: steps.login.outcome == 'success'
         run: neoload test-settings --zone ${{ inputs.ZONE_ID }} --lgs 1 patch ${{ inputs.TEST_ID }}
 
       - name: NeoLoad CLI run test
+        id: run
+        if: steps.configure.outcome == 'success'
         run: |
           neoload run \
-            --name "Via GitHub Actions (#$GITHUB_RUN_NUMBER)" \
+            --name "GitHub Workflow: $GITHUB_WORKFLOW  Run: #$GITHUB_RUN_NUMBER)" \
             --external-url $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID \
             --external-url-label "$GITHUB_REPOSITORY" \
             --description "Github pipeline performance regression test | repo: $GITHUB_REPOSITORY | workflow:  $GITHUB_WORKFLOW | run: $GITHUB_RUN_NUMBER" \
             --return-0
 
       - name: Generate Test Report
-        id: report
-        if: always()
+        id: junitsla
+        if: steps.run.outcome == 'success'
         run: neoload test-results junitsla
 
       - name: Publish Test Report
-        if: steps.report.outcome == 'success'
+        if: steps.junitsla.outcome == 'success'
         uses: scacap/action-surefire-report@v1
         with:
           report_paths: junit-sla.xml
@@ -57,3 +64,35 @@ jobs:
           ignore_flaky_tests: false
           skip_publishing: false
           file_name_in_stack_trace: false
+
+      - name: Prepare HTML Report Templates
+        id: template
+        if: steps.run.outcome == 'success'
+        run: |
+          git clone --depth=1 https://github.com/Neotys-Labs/neoload-cli.git
+          mkdir ReportTemplates
+          cp -r neoload-cli/neoload/resources/jinja ReportTemplates
+          rm -rf neoload-cli
+
+      - name: Generate HTML Report
+        id: report
+        if: steps.template.outcome == 'success'
+        run: |
+          neoload report \
+            --template ReportTemplates/jinja/sample-custom-report.html.j2 \
+            --out-file neoload-report.html \
+            "GitHub Workflow: $GITHUB_WORKFLOW  Run: #$GITHUB_RUN_NUMBER)"
+
+      - name: Upload HTML Report Artifact
+        id: upload
+        if: steps.report.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: neoload-html-report
+          path: neoload-report.html
+
+      - name: Add HTML Report Link to Summary
+        if: steps.upload.outcome == 'success'
+        run: |
+          echo "## 📊 NeoLoad HTML Report" >> $GITHUB_STEP_SUMMARY
+          echo "Download the report from the artifacts section: [neoload-html-report](./)" >> $GITHUB_STEP_SUMMARY
